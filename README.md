@@ -54,7 +54,7 @@ date: July 6 2023
 
 1. Launch ``Fit_gamma.ipynb``. Parameters in the model are:
 
-- ``logsp``: the trade-off parameter array. The default setting ``np.logspace(0,2, num = 1500)`` generates 1500 log-spaced tradeoff parameters $\beta$ from 1 to 100.
+- ``logsp``: the trade-off parameter array. The default setting ``np.logspace(3,0, num = 2000)`` generates 2000 log-spaced tradeoff parameters $\beta$ from 1000 to 1.
 
 - ``mu``: the decay parameter. The default is 0.2.
 
