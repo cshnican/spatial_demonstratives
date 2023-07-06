@@ -1,0 +1,56 @@
+---
+title: "Map"
+author: "Sihan Chen, Richard Futrell, Kyle Mahowald"
+date: '2022-12-28'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(cowplot)
+library(googleway)
+library(sf)
+library(ggrepel)
+library(tidyverse)
+library(rnaturalearth)
+library(paletteer)
+library(rnaturalearthdata)
+library(tmap)
+```
+
+This script takes in the file called language_info.csv and makes a map of the real languages whose spatial deictic systems are studied.
+The languages are taken from Nintemann et al. (2020). About half of the languages have a direct match in Glottolog with geographical coordinates.
+For those languages that do not have a direct coordinate match in Glottolog (usually either a dialect or a collective term), we find the closest variety that has a coordinate.
+
+Read the dataframe and set up a world map
+```{r}
+d <- read.csv('language_info.csv')
+world <- ne_countries(scale = 'medium', returnclass = 'sf')
+```
+
+
+Fill in the points
+```{r}
+sites <- st_as_sf(d, coords = c("longitude", "latitude"), crs = 4326, agr = 'constant') 
+clrs <- paletteer_d("palettesForR::LaTeX", 68)
+ggplot(data = world) +
+  theme_bw() +
+  geom_sf() +
+  geom_sf(data = sites, aes(fill=family_name), size = 2, shape=22) +
+  scale_fill_manual(values=clrs) +
+  theme(legend.position = 'bottom', 
+        legend.title = element_blank(),
+        text = element_text(size=25))
+
+ggsave('figures/paper_figures/map.png', width=14, height=10, unit='in')
+
+```
+
+
+```{r}
+
+
+```

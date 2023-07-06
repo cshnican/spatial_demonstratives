@@ -1,0 +1,3 @@
+,place,goal,source,prior_spec,mean_gNID,mean_epsilon,mu
+0,0.0,-0.789,1.316,place_goal_source,0.23915434568928287,0.0362079263257906,0.2
+0,0.0,-0.789,1.316,place_goal_source,opensubtitles,0.23688382741559577,0.03527133413478682,0.2
