@@ -212,7 +212,7 @@ class RunIB:
         idx = diff.argmin()
         return idx, self.logsp[idx], diff.min()/self.logsp[idx]
 
-    # compute systematicity
+    # compute consistency
     def count_patterns(self,arr):
         # arr: an np array
         arr_new = einops.rearrange(arr, "(a b) -> a b", b=3) # convert to standard paradigm table
@@ -279,13 +279,13 @@ class RunIB:
         df["Area"] = [l[2] for l in lexicons]
         df["LangCategory"] = [classify_lang(lang) for lang in df["Language"]]
 
-        print('Calculating systematicity...')
+        print('Calculating consistency...')
         lst = list(self.deictic_index.keys())
         lexicon_list = df[lst].values
 
-        df["systematicity"] = [self.count_patterns(arr) for arr in lexicon_list]
+        df["consistency"] = [self.count_patterns(arr) for arr in lexicon_list]
 
-        # df = systematicity(df) 
+        # df = consistency(df) 
 
         dfs += [df]
         x =  pd.concat(dfs).sort_values(["I[U;W]"], ascending=False)

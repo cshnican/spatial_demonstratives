@@ -1,0 +1,202 @@
+---
+title: "Plot Grid Search results"
+author: "Sihan Chen, Richard Futrell, Kyle Mahowald"
+date: '2022-09-28'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(tidyverse)
+library(ggrepel)
+library(RColorBrewer)
+library(ggnewscale)
+library(latex2exp)
+library(gridExtra)
+library(brms)
+library(ggpubr)
+library(ggrepel)
+library(tidybayes)
+library(patchwork)
+```
+
+This script generates figures from Experiment 2, where we try different free parameter setting and see how the efficiency of real lexicon changes with respect to that of simulated lexicons.
+
+
+Read dataset: 
+```{r}
+d = read.csv('sheets/total_search_results.csv') %>%
+  mutate(favoring = ifelse(abs(source) > abs(goal), 'goal', ifelse(abs(source) < abs(goal), 'source', 'neither')),
+         place_location = ifelse(goal < 0 & source > 0 | goal > 0 & source < 0, 'PLACE central', 'PLACE marginal')) %>%
+  mutate(favoring = factor(favoring, levels = c('goal', 'source', 'neither')),
+         place_location = factor(place_location)) %>% 
+  rowwise() %>% mutate(cat = paste(favoring, place_location, sep = '_')) %>% ungroup() %>%
+  mutate(code = case_when(cat == 'goal_PLACE central' ~ 'S--P-G',
+                           cat == 'goal_PLACE marginal' ~  'S-G-P',
+                           cat == 'neither_PLACE central' ~ 'S-P-G',
+                           cat == 'neither_PLACE marginal' ~ 'S=G-P',
+                           cat == 'source_PLACE central' ~ 'S-P--G',
+                           cat == 'source_PLACE marginal' ~ 'P-S-G'),
+         code = factor(code, levels = c('S--P-G', 'S-G-P', 'S-P-G', 'S=G-P', 'S-P--G','P-S-G'))) %>%
+  group_by(place_location) %>% ungroup()
+
+```
+
+This is a scary plot: we might put it in the appendix
+
+```{r}
+ggplot(d, aes(x = goal, y = source, size = mean_gNID)) +
+  facet_wrap(~prior_spec) +
+  geom_point() +
+  geom_point(data = d %>% slice_min(order_by = mean_gNID, n = 1), color = 'red') +
+  geom_abline(slope = -1, intercept = 0, color = 'green') +
+  theme_bw(20)
+
+```
+
+
+Plot mean gNID under each prior configuration
+```{r}
+prior_specs <- unique(d$prior_spec[d$prior_spec != 'place_goal_source'])
+my_comparisons <- list(c("place_goal_source", prior_specs[1]), 
+                       c("place_goal_source", prior_specs[2]), 
+                       c("place_goal_source", prior_specs[3]), 
+                       c("place_goal_source", prior_specs[4]), 
+                       c("place_goal_source", prior_specs[5]), 
+                       c("place_goal_source", prior_specs[6]), 
+                       c("place_goal_source", prior_specs[7]))
+ggplot(d, aes(x = reorder(prior_spec, mean_gNID), y = mean_gNID)) +
+#facet_wrap(~code) +
+stat_summary(geom = 'col', fun = mean) +
+scale_fill_manual(values = c('gray90', 'gray90', 'gray90','gray90','gray90', 'gray90', 'gray50', 'gray90')) +
+stat_summary(geom = 'errorbar', fun.data = mean_cl_boot) +
+geom_jitter(width = 0.05, height = 0, alpha = 0.5) +
+theme_classic(14) +
+theme(axis.text.x = element_text(angle = 30, vjust=0.5)) +
+stat_compare_means(method='t.test', comparisons=my_comparisons) +
+xlab('Need distribution (from most frequent to least frequent)') +
+ylab('Average gNID')
+
+ggsave('figures/paper_figures/need_distribution.png')
+
+d %>% group_by(prior_spec) %>% summarise(mean = mean(mean_gNID)) %>% ungroup()
+```
+
+
+Plot mean gNID under each pgs representation cost
+```{r}
+codes <- as.character(unique(d$code[d$code != 'S--P-G']))
+my_comparisons <- list(c('S--P-G', codes[1]),
+                       c('S--P-G', codes[2]),
+                       c('S--P-G', codes[3]),
+                       c('S--P-G', codes[4]),
+                       c('S--P-G', codes[5]))
+
+ggplot(d, aes(x = reorder(code, mean_gNID), y = mean_gNID, fill = code)) +
+#facet_wrap(~prior_spec) +
+stat_summary(geom = 'col', fun = 'mean', width = 0.3) +
+geom_jitter(width = 0.05, height = 0, alpha = 0.5) +
+stat_summary(geom = 'errorbar', fun.data = 'mean_cl_boot', width = 0.3) +
+theme_classic(25) +
+stat_compare_means(method='t.test', comparisons=my_comparisons) +
+xlab('Place-Goal-Source coordinates') +
+ylab('Average gNID') +
+theme(panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.title.x=element_blank(),
+      #axis.text.x=element_blank(),
+      legend.position = "none"
+      ) +
+scale_fill_manual(values = c('gray50', 'gray90', 'gray90', 'gray90','gray90','gray90'))
+
+ggsave('figures/paper_figures/rep_cost.png')
+
+```
+
+Stat: which factor matters more
+```{r}
+m <- brm(mean_gNID ~ (1|prior_spec) + (1|code), data =d)
+# m <- brm(mean_gNID ~ prior_spec + code, data = d,
+#          family=gaussian(),
+#          warmup=2000,
+#          iter=10000,
+#          chain=4,
+#          thin=10)
+# 
+# m %>% summary()
+
+#hypothesis(m, 'abs(prior_specplace_source_goal) < abs(codeSMGMP)')
+
+# do BRMS
+# use the best cost function and the worst cost function, best prior and the worst prior
+p1 <- m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% 
+  ggplot(aes(x=r_code, y=code)) + 
+  geom_halfeyeh() + 
+  xlim(-0.3, 0.3) + 
+  theme_bw(15) +
+  ylab('orientation confusion cost') +
+  xlab('intercept')
+p2 <- m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% 
+  ggplot(aes(x=r_prior_spec, y=prior)) + 
+  geom_halfeyeh()+ 
+  xlim(-0.3, 0.3) + 
+  theme_bw(15) +
+  ylab('need distribution permutation') +
+  xlab('intercept')
+(p1/p2) 
+
+
+
+ggplot(m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) < abs(r_code)),
+       aes(x=r_code, y=r_prior_spec)) + 
+facet_grid(rows = vars(prior), cols = vars(code)) +
+geom_point(color='lightgreen') + 
+geom_point(data=m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) >= abs(r_code)),
+           aes(x=r_code, y=r_prior_spec)) +
+geom_abline(slope = 1, linetype='dashed', color='darkblue') +
+geom_abline(slope= -1, linetype='dashed', color='darkblue') +
+xlim(-0.3, 0.3) + 
+ylim(-0.3, 0.3) +
+coord_fixed() + 
+theme_bw(15) +
+theme(strip.text.y = element_text(angle=0)) +
+xlab('random intercept of orientation confusion cost') +
+ylab('random intercept of need distribution permutation')
+
+ggsave('figures/paper_figures/comb.png')
+m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) < abs(r_code)) %>% group_by(code, prior) %>%
+  summarise(n1=n()) %>% left_join(
+m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) >= abs(r_code)) %>% group_by(code, prior) %>%
+  summarise(n2=n()), by = c('code', 'prior')) %>% 
+  mutate(ratio=n1/n2) %>% View()
+```
+
+
+
+Plot gNID and mu
+```{r}
+d_mu <- read.csv('sheets/mu_search_gridsearch.csv')
+
+ggplot(d_mu, aes(x = mu, y = mean_gNID)) +
+  geom_line() +
+  geom_point() +
+  theme_classic(25) +
+  xlab('decay parameter') +
+  ylab('Average gNID')
+
+```
+
+
+Compare gNID and epsilon
+```{r}
+ggplot(d, aes(mean_gNID, mean_epsilon)) +
+  geom_point() +
+  geom_smooth(method = 'lm') +
+  theme_classic(25) +
+  xlab('Mean gNID') +
+  ylab(TeX('Mean $\\epsilon$'))
+```
+
