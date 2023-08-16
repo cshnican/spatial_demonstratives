@@ -94,6 +94,6 @@ python run_ib.py --prior_search --outfile sheets/prior_search
 python run_ib.py --mu_search --outfile sheets/mu_search
 ```
 
-2. Open and run the ``plot_grid_search.R`` script. Figures will be generated in the ``figures`` folder.
+2. Open and run the ``Plot Grid Search.Rmd`` script. Figures will be generated in the ``figures`` folder.
 
 
