@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import re
 
-# systematicity-related helper functions
+# consistency-related helper functions
 def count_theta_patterns(key, df_wide):
     paradigm = df_wide.loc[df_wide["Language"] == key]
     # input: a pd dataframe with 3 columns
@@ -16,12 +16,23 @@ def count_theta_patterns(key, df_wide):
     # pick one row from each distal level randomly, repeat 100 times, calculate the average number of unique paradigms 
     for i in range(nloops):
         temp = pd.DataFrame({'Type':[], 'source': [], 'place': [], 'goal': []})
+        Type = []
+        source = []
+        place = []
+        goal = []
         # number of distal levels:
         for typ in type_list:
             # number of different paradigms in a distal level:
             nrow = paradigm.loc[paradigm['Type'] == typ].shape[0]
             # pick one randomly
-            temp = pd.concat([temp, paradigm.loc[paradigm['Type'] == typ].iloc[random.randrange(nrow),]], ignore_index=True)
+            to_be_concat = paradigm.loc[paradigm['Type'] == typ, ['Type', 'source', 'place', 'goal']].iloc[random.randrange(nrow),]
+            Type.append(to_be_concat['Type'])
+            source.append(to_be_concat['source'])
+            place.append(to_be_concat['place'])
+            goal.append(to_be_concat['goal'])
+            #temp = pd.concat([temp, paradigm.loc[paradigm['Type'] == typ].iloc[random.randrange(nrow),]], ignore_index=True)
+        temp = pd.DataFrame({'Type': Type, 'source': source, 'place': place, 'goal': goal})
+        #print(temp)
         # category encoding for each column
         temp['source'] = pd.factorize(temp['source'])[0]
         temp['place'] = pd.factorize(temp['place'])[0]
@@ -41,19 +52,27 @@ def count_r_patterns(key, df_wide):
     max_pattern = 0
     nloops = 1 # there's no uncertainty in simulated paradigms
     for i in range(nloops):
-        temp = pd.DataFrame({'Type':[], 'source': [], 'place': [], 'goal': []})
-        # print(paradigm)
+        #temp = pd.DataFrame({'Type':[], 'source': [], 'place': [], 'goal': []})
+        Type = []
+        source = []
+        place = []
+        goal = []
         for typ in type_list:
             # number of different paradigms in a distal level:
             nrow = paradigm.loc[paradigm['Type'] == typ].shape[0]
             # pick one randomly:
-            temp = pd.concat([temp, paradigm.loc[paradigm['Type'] == typ].iloc[random.randrange(nrow),]], ignore_index=True)  
+            to_be_concat = paradigm.loc[paradigm['Type'] == typ, ['Type', 'source', 'place', 'goal']].iloc[random.randrange(nrow),]
+
+            Type.append(to_be_concat['Type'])
+            source.append(to_be_concat['source'])
+            place.append(to_be_concat['place'])
+            goal.append(to_be_concat['goal'])
+            #temp = pd.concat([temp, to_be_concat], ignore_index=True, axis=1)  
             # temp = temp.append(paradigm.loc[paradigm['Type'] == typ].iloc[random.randrange(nrow),])  
+        temp = pd.DataFrame({'Type': Type, 'source': source, 'place': place, 'goal': goal})
         patterns = np.ones([temp.shape[0], 3])
-        # print("i = ", i, ", ", temp)
         for j in range(temp.shape[0]):
             patterns[j,:] = pd.factorize(temp[["source", "place", "goal"]].iloc[j,])[0]
-        # print(patterns)
         unique_patterns += len(np.unique(patterns, axis = 0))
         # if len(np.unique(patterns, axis = 0)) > max_pattern:
         #     max_pattern = len(np.unique(patterns, axis = 0))
@@ -81,7 +100,7 @@ def make_unique_paradigm_table(df_wide):
             print("i = ", i, " / ", tot, "; lang = ", lang)
         i += 1
     table = pd.DataFrame(list(zip(langs, score_r, score_theta)), columns=["Language", "r patterns", "theta patterns"])
-    table["systematicity_score"] = table["r patterns"] + table["theta patterns"]
+    table["consistency_score"] = table["r patterns"] + table["theta patterns"]
     # table.to_csv(outfile)
     return(table)
 
@@ -89,8 +108,8 @@ def paradigm_names(df):
     names = df.columns
     return(names[[bool(re.search('^D', i)) for i in df.columns]])
 
-def systematicity(df):
-    # calculate systematicity
+def consistency(df):
+    # calculate consistency
     # distinguish all the simulated languages by giving them numbers
     k = 1
     for i in range(df.shape[0]):
@@ -110,7 +129,6 @@ def systematicity(df):
     # pivot wider
     # df_wide = df_long.pivot_table(index=df_long[["I[U;W]", "I[M;W]", 'MI_Objective', 'grammar_complexity', 'Language', 'Area', 'LangCategory','Type' ]], columns = 'theta', values='Word',aggfunc='first').reset_index()
     df_wide = df_long.pivot_table(index=df_long[["I[U;W]", "I[M;W]", 'Area','Type', 'Language']], columns = 'theta', values='Word',aggfunc='first').reset_index()
-    
     #make_unique_paradigm_table(df)
     df = pd.merge(df, make_unique_paradigm_table(df_wide), on = 'Language')
     return(df)

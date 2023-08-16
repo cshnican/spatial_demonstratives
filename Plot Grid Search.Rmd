@@ -28,7 +28,7 @@ This script generates figures from Experiment 2, where we try different free par
 
 Read dataset: 
 ```{r}
-d = read.csv('sheets/total_search_results.csv') %>%
+d = read.csv('sheets/total_grid_search_gridsearch.csv') %>%
   mutate(favoring = ifelse(abs(source) > abs(goal), 'goal', ifelse(abs(source) < abs(goal), 'source', 'neither')),
          place_location = ifelse(goal < 0 & source > 0 | goal > 0 & source < 0, 'PLACE central', 'PLACE marginal')) %>%
   mutate(favoring = factor(favoring, levels = c('goal', 'source', 'neither')),
@@ -45,20 +45,8 @@ d = read.csv('sheets/total_search_results.csv') %>%
 
 ```
 
-This is a scary plot: we might put it in the appendix
 
-```{r}
-ggplot(d, aes(x = goal, y = source, size = mean_gNID)) +
-  facet_wrap(~prior_spec) +
-  geom_point() +
-  geom_point(data = d %>% slice_min(order_by = mean_gNID, n = 1), color = 'red') +
-  geom_abline(slope = -1, intercept = 0, color = 'green') +
-  theme_bw(20)
-
-```
-
-
-Plot mean gNID under each prior configuration
+Plot mean gNID under each prior configuration (Figure 7)
 ```{r}
 prior_specs <- unique(d$prior_spec[d$prior_spec != 'place_goal_source'])
 my_comparisons <- list(c("place_goal_source", prior_specs[1]), 
@@ -69,24 +57,25 @@ my_comparisons <- list(c("place_goal_source", prior_specs[1]),
                        c("place_goal_source", prior_specs[6]), 
                        c("place_goal_source", prior_specs[7]))
 ggplot(d, aes(x = reorder(prior_spec, mean_gNID), y = mean_gNID)) +
-#facet_wrap(~code) +
-stat_summary(geom = 'col', fun = mean) +
-scale_fill_manual(values = c('gray90', 'gray90', 'gray90','gray90','gray90', 'gray90', 'gray50', 'gray90')) +
-stat_summary(geom = 'errorbar', fun.data = mean_cl_boot) +
-geom_jitter(width = 0.05, height = 0, alpha = 0.5) +
-theme_classic(14) +
-theme(axis.text.x = element_text(angle = 30, vjust=0.5)) +
-stat_compare_means(method='t.test', comparisons=my_comparisons) +
-xlab('Need distribution (from most frequent to least frequent)') +
-ylab('Average gNID')
+  #facet_wrap(~code) +
+  stat_summary(geom = 'col', fun = mean) +
+  scale_fill_manual(values = c('gray90', 'gray90', 'gray90','gray90','gray90', 'gray90', 'gray50', 'gray90')) +
+  stat_summary(geom = 'errorbar', fun.data = mean_cl_boot) +
+  geom_jitter(width = 0.05, height = 0, alpha = 0.5) +
+  theme_classic(14) +
+  theme(axis.text.x = element_text(angle = 30, vjust=0.5)) +
+  stat_compare_means(method='t.test', comparisons=my_comparisons) +
+  xlab('Need distribution (from most frequent to least frequent)') +
+  ylab('Average gNID')
 
-ggsave('figures/paper_figures/need_distribution.png')
+ggsave('figures/orig_figures/Figure 7.png')
 
 d %>% group_by(prior_spec) %>% summarise(mean = mean(mean_gNID)) %>% ungroup()
 ```
 
 
-Plot mean gNID under each pgs representation cost
+Plot mean gNID under each pgs representation cost (Figure 6)
+This is not the final figure: the x-axis was rendered afterwards
 ```{r}
 codes <- as.character(unique(d$code[d$code != 'S--P-G']))
 my_comparisons <- list(c('S--P-G', codes[1]),
@@ -112,23 +101,13 @@ theme(panel.grid.major = element_blank(),
       ) +
 scale_fill_manual(values = c('gray50', 'gray90', 'gray90', 'gray90','gray90','gray90'))
 
-ggsave('figures/paper_figures/rep_cost.png')
+ggsave('figures/orig_figures/Figure 6.png')
 
 ```
 
-Stat: which factor matters more
+Stat: which factor matters more (Figure 15)
 ```{r}
 m <- brm(mean_gNID ~ (1|prior_spec) + (1|code), data =d)
-# m <- brm(mean_gNID ~ prior_spec + code, data = d,
-#          family=gaussian(),
-#          warmup=2000,
-#          iter=10000,
-#          chain=4,
-#          thin=10)
-# 
-# m %>% summary()
-
-#hypothesis(m, 'abs(prior_specplace_source_goal) < abs(codeSMGMP)')
 
 # do BRMS
 # use the best cost function and the worst cost function, best prior and the worst prior
@@ -166,7 +145,7 @@ theme(strip.text.y = element_text(angle=0)) +
 xlab('random intercept of orientation confusion cost') +
 ylab('random intercept of need distribution permutation')
 
-ggsave('figures/paper_figures/comb.png')
+ggsave('figures/orig_figures/Figure 15.png')
 m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) < abs(r_code)) %>% group_by(code, prior) %>%
   summarise(n1=n()) %>% left_join(
 m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior_spec) >= abs(r_code)) %>% group_by(code, prior) %>%
@@ -176,7 +155,7 @@ m %>% spread_draws(r_prior_spec[prior, ], r_code[code, ]) %>% filter(abs(r_prior
 
 
 
-Plot gNID and mu
+Plot gNID and mu (Figure 11)
 ```{r}
 d_mu <- read.csv('sheets/mu_search_gridsearch.csv')
 
@@ -187,16 +166,7 @@ ggplot(d_mu, aes(x = mu, y = mean_gNID)) +
   xlab('decay parameter') +
   ylab('Average gNID')
 
+ggsave('figures/orig_figures/Figure 11.png')
 ```
 
-
-Compare gNID and epsilon
-```{r}
-ggplot(d, aes(mean_gNID, mean_epsilon)) +
-  geom_point() +
-  geom_smooth(method = 'lm') +
-  theme_classic(25) +
-  xlab('Mean gNID') +
-  ylab(TeX('Mean $\\epsilon$'))
-```
 

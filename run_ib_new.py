@@ -38,6 +38,19 @@ def MI(pXY):
     """ mutual information, I(X;Y) """
     return H(pXY.sum(axis=0)) + H(pXY.sum(axis=1)) - H(pXY)
 
+def mi(p_xy):
+    """ Calculate mutual information of a distribution P(x,y) 
+d
+    Input: 
+    p_xy: An X x Y array giving p(x,y)
+    
+    Output:
+    The mutual information I[X:Y], a nonnegative scalar,
+    """
+    p_x = p_xy.sum(axis=-1, keepdims=True)
+    p_y = p_xy.sum(axis=-2, keepdims=True)
+    return scipy.special.xlogy(p_xy, p_xy).sum() - scipy.special.xlogy(p_x, p_x).sum() - scipy.special.xlogy(p_y, p_y).sum()
+
 # function to calculate gNID (Zaslavsky et al., 2018)
 def gNID(pW_X, pV_X, pX):
     if len(pX.shape) == 1:
@@ -51,16 +64,17 @@ def gNID(pW_X, pV_X, pX):
     score = 1 - MI(pWV) / (np.max([MI(pWW), MI(pVV)]))
     return score
 
-def information_plane(p_x, p_y, p_y_x, p_z_x):
+def information_plane(p_x, p_y_x, p_z_x):
     """ Given p(x), p(y|x), and p(z|x), calculate I[Y:Z] and I[X:Z] """
     p_xz = p_x[:, None] * p_z_x # Joint p(x,y), shape X x Y
     #p_xz = np.expand_dims(p_x, axis=1) * p_z_x    
     p_xyz = p_x[:, None, None] * p_y_x[:, :, None] * p_z_x[:, None, :] # Joint p(x,y,z), shape X x Y x Z
     #p_xyz = np.expand_dims(p_x, axis=(1,2)) * np.expand_dims(p_y_x, axis=2) * np.expand_dims(p_z_x, axis=1)
     p_yz = p_xyz.sum(axis=0) # Joint p(y,z), shape Y x Z
-    
     p_z = p_xz.sum(axis=-2, keepdims=True)
-    informativity = scipy.special.xlogy(p_yz, p_yz).sum() - scipy.special.xlogy(p_y, p_y).sum() - scipy.special.xlogy(p_z, p_z).sum()
+    #informativity = scipy.special.xlogy(p_yz, p_yz).sum() - scipy.special.xlogy(p_y, p_y).sum() - scipy.special.xlogy(p_z, p_z).sum()
+    #informativity = MI(p_yz)
+    informativity = mi(p_yz)
     complexity = scipy.special.xlogy(p_xz, p_xz).sum() - scipy.special.xlogy(p_x, p_x).sum() - scipy.special.xlogy(p_z, p_z).sum()
     
     return informativity, complexity
@@ -167,7 +181,7 @@ class RunIB:
 
         for gamma in self.logsp:
             q_w_m = _ib(self.prior, self.prob_u_given_m, num_words, gamma, init, num_iter=20)
-            informativity_temp, complexity_temp = information_plane(self.prior, self.prob_u, self.prob_u_given_m, q_w_m)
+            informativity_temp, complexity_temp = information_plane(self.prior,self.prob_u_given_m, q_w_m)
 
             qW_M.append(q_w_m)
             informativity.append(informativity_temp)
@@ -187,7 +201,7 @@ class RunIB:
 
     # function to find the objective function
     def get_objective(self, q_w_m, gamma):
-        informativity, complexity = information_plane(self.prior, self.prob_u, self.prob_u_given_m, q_w_m)
+        informativity, complexity = information_plane(self.prior, self.prob_u_given_m, q_w_m)
         return complexity - gamma * informativity
 
     # function to find gamma minimizing the objective function
@@ -249,7 +263,7 @@ class RunIB:
         df = pd.DataFrame([{dm: l[1].argmax(axis=1)[dm_num]
                         for dm_num, dm in enumerate(self.deictic_index)}for l in lexicons]) 
 
-        information_plane_list = [information_plane(self.prior, self.prob_u, self.prob_u_given_m, l[1]) for l in lexicons]  
+        information_plane_list = [information_plane(self.prior, self.prob_u_given_m, l[1]) for l in lexicons]  
 
         print("Calculating informativity and complexity...")                      
         df["I[U;W]"] = [l[0] for l in information_plane_list]

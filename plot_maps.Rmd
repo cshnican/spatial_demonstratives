@@ -32,7 +32,7 @@ world <- ne_countries(scale = 'medium', returnclass = 'sf')
 ```
 
 
-Fill in the points
+Fill in the points (Figure 4)
 ```{r}
 sites <- st_as_sf(d, coords = c("longitude", "latitude"), crs = 4326, agr = 'constant') 
 clrs <- paletteer_d("palettesForR::LaTeX", 68)
@@ -45,12 +45,7 @@ ggplot(data = world) +
         legend.title = element_blank(),
         text = element_text(size=25))
 
-ggsave('figures/paper_figures/map.png', width=14, height=10, unit='in')
+ggsave('figures/orig_figures/Figure 4.png', width=14, height=10, unit='in')
 
 ```
 
-
-```{r}
-
-
-```
